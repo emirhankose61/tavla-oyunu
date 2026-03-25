@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tavla Oyunu</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #724a06;
+      }
+
+      .board {
+        width: 800px;
+        height: 400px;
+        background: #deb887;
+        display: flex;
+        flex-wrap: wrap;
+        position: relative;
+        box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        border-radius: 15px;
+      }
+
+      .point {
+        width: calc(100% / 12);
+        height: 70%;
+        border-left: 1px solid #333;
+        border-right: 1px solid #333;
+        box-sizing: border-box;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 5px;
+        overflow: hidden;
+      }
+
+      .point::before {
+        content: '';
+        position: absolute;
+        top: 7%;
+        left: 51%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 22px solid transparent;
+        border-right: 22px solid transparent;
+        border-top: 100px solid #86380b80; 
+        z-index: 0;
+       }
+
+      .bottom-row .point::before {
+        top: auto;
+        bottom: 0;
+        border-bottom: 100px solid #eeb33593; 
+        border-top: none;
+      }
+
+      .top-row, .bottom-row {
+        display: flex;
+        width: 100%;
+      }
+
+      .bottom-row .point {
+        flex-direction: column-reverse;
+        justify-content: flex-end;
+        padding-top: 0;
+        padding-bottom: 5px;
+      }
+
+      .piece {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: grab;
+        z-index: 10;
+        margin: 1px 0;
+        box-shadow: inset -2px -2px 6px rgba(0,0,0,0.3), inset 2px 2px 6px rgba(255, 255, 255, 0.3);
+        transition: all 0.2s ease;
+      }
+
+      .piece:active {
+        transform: scale(1.05);
+      }
+
+      .white { background: white ; border: 2px solid black;}
+      .black { background: black ; border: 2px solid white;}
+
+      .bar {
+        width: 20px;
+        height: 100%;
+        background: repeating-linear-gradient(
+        45deg,
+        #444,
+        #444 10px,
+        #666 10px,
+        #666 20px
+        );
+        border-left: 3px solid #222;
+        border-right: 3px solid #222;
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+      }
+
+      .dice {
+        position: absolute;
+        bottom: -80px;
+        left: 52%;
+        transform: translateX(-50%);
+        background: #fff;
+        padding: 10px;
+        border-radius: 8px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .dice button {
+        background: #f4c542;
+         border: none;
+         border-radius: 10px;
+         padding: 10px 20px;
+         font-weight: bold;
+         cursor: pointer;
+         box-shadow: 2px 2px 5px #333;
+         transition: 0.3s;
+      }
+
+      .dice button:hover {
+         background: #d4a017;
+         transform: scale(1.05);
+      }
+
+      .turn-info{
+        position: absolute;
+        top: -65px;
+        left: 50%;
+        transform: translateX(-38%);
+        background: #fff8dc;
+        padding: 2%;
+        border-radius: 8px;
+        font-weight: bold;
+        color: #333;
+        font-size: 18px;
+        box-shadow: 0 0 8px rgba(0,0,0,0.3);
+        border: 2px solid #999;
+      }
+      
+    </style>
+  </head>
+  <body>
+    <div class="board">
+      <div class="top-row">
+        <div class="point" id="p1"></div>
+        <div class="point" id="p2"></div>
+        <div class="point" id="p3"></div>
+        <div class="point" id="p4"></div>
+        <div class="point" id="p5"></div>
+        <div class="point" id="p6"></div>
+        <div class="point" id="p7"></div>
+        <div class="point" id="p8"></div>
+        <div class="point" id="p9"></div>
+        <div class="point" id="p10"></div>
+        <div class="point" id="p11"></div>
+        <div class="point" id="p12"></div>
+      </div>
+      <div class="bar" id="bar"></div>
+    <div class="bottom-row">
+      <div class="point" id="p24"></div>
+      <div class="point" id="p23"></div>
+      <div class="point" id="p22"></div>
+      <div class="point" id="p21"></div>
+      <div class="point" id="p20"></div>
+      <div class="point" id="p19"></div>
+      <div class="point" id="p18"></div>
+      <div class="point" id="p17"></div>
+      <div class="point" id="p16"></div>
+      <div class="point" id="p15"></div>
+      <div class="point" id="p14"></div>
+      <div class="point" id="p13"></div>
+    </div>
+    <div class="turn-info" id="turn-info">sıra:Beyaz</div>
+    <div class="dice">
+      <button onclick="rollDice()">Zar at</button>
+      <div id="dice1" class="dice-face">🎲</div>
+      <div id="dice2" class="dice-face">🎲</div>
+      <div id="diceResult"></div>
+     </div>
+    </div>
+
+    <script>
+    let currentPlayer = 'white';
+    let diceRolls = [];
+    let draggedPiece = null;
+    let fromPointId = null;
+
+    function updateTurnInfo() {
+      const text = currentPlayer === 'white' ? 'Sıra: Beyaz' : 'Sıra: Siyah';
+      document.getElementById('turn-info').textContent = text;
+    }
+
+    function rollDice() {
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  diceRolls = d1 === d2 ? [d1, d1, d1, d1] : [d1, d2];
+  document.getElementById('dice1').textContent = getDieEmoji(d1);
+  document.getElementById('dice2').textContent = getDieEmoji(d2);
+  // <-- burası backtick olmalı
+  document.getElementById('diceResult').textContent = `Zarlar: ${diceRolls.join(' - ')}`;
+}
+
+function getDieEmoji(num) {
+  const diceMap = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  return diceMap[num];
+}
+
+function barHasPieces() {
+  const bar = document.querySelector('.bar');
+  const pieces = bar.querySelectorAll('.piece');
+  return Array.from(pieces).some(p => p.classList.contains(currentPlayer));
+}
+
+function getEntryPointForRoll(roll) {
+  // <-- burada da string döndürmelisin
+  if (currentPlayer === 'white') return `p${25 - roll}`;
+  else return `p${roll}`;
+}
+
+function resizePieces(pointElement) {
+  const pieces = pointElement.querySelectorAll('.piece');
+  const maxHeight = pointElement.clientHeight - 10;
+  const count = Math.max(pieces.length, 1);
+  const size = Math.min(40, Math.floor(maxHeight / count));
+
+  pieces.forEach(p => {
+    // <-- 'px' birimi string olmalı
+    p.style.height = `${size}px`;
+    p.style.width = `${size}px`;
+  });
+}
+
+
+      const createPiece = (color, pointId, count) => {
+      const point = document.getElementById(pointId);
+      for (let i = 0; i < count; i++) {
+        const piece = document.createElement('div');
+        piece.classList.add('piece', color);
+        piece.draggable = true;
+        
+
+        if (count >= 4) {
+            piece.style.height = "40px";
+            piece.style.width = "35px";
+          } else {
+            piece.style.height = "70px";
+            piece.style.width = "60px";
+          }
+
+        piece.addEventListener('dragstart', (e) => {
+          if (!piece.classList.contains(currentPlayer) || diceRolls.length === 0) {
+            e.preventDefault();
+            return;
+          }
+          draggedPiece = piece;
+          fromPointId = piece.parentElement.id;
+          e.dataTransfer.setDragImage(piece, 20, 20);
+        });
+
+        point.appendChild(piece);
+      }
+    }
+
+      createPiece('white', 'p1',2);
+      createPiece('black', 'p6',5);
+      createPiece('black', 'p8',3);
+      createPiece('white', 'p12',5);
+      createPiece('black', 'p13',5);
+      createPiece('white', 'p17',3);
+      createPiece('white', 'p19',5);
+      createPiece('black', 'p24',2);
+
+    function getPointNumber(id) {
+      return parseInt(id.replace('p', ''), 10);
+    }
+
+    document.querySelectorAll('.point').forEach(point => {
+  point.addEventListener('dragover', (e) => e.preventDefault());
+  point.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!draggedPiece || !draggedPiece.classList.contains(currentPlayer) || diceRolls.length === 0) return;
+
+    if (barHasPieces() && !fromPointId.includes('bar')) return;
+
+    if (fromPointId === 'bar') {
+      const allowedTargets = diceRolls.map(r => getEntryPointForRoll(r));
+      if (!allowedTargets.includes(point.id)) return;
+
+      const toNum = getPointNumber(point.id);
+      const piecesOnTarget = point.querySelectorAll('.piece');
+      const opponent = currentPlayer === 'white' ? 'black' : 'white';
+
+      if (piecesOnTarget.length > 1 && piecesOnTarget[0].classList.contains(opponent)) {
+        const anyCanLand = allowedTargets.some(tId => {
+          const tPoint = document.getElementById(tId);
+          const tPieces = tPoint.querySelectorAll('.piece');
+          return (
+            tPieces.length === 0 ||
+            tPieces[0].classList.contains(currentPlayer) ||
+            (tPieces.length === 1 && tPieces[0].classList.contains(opponent))
+          );
+        });
+
+        if (!anyCanLand) {
+          currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+          updateTurnInfo();
+        }
+
+        return;
+      }
+
+      if (piecesOnTarget.length === 1 && piecesOnTarget[0].classList.contains(opponent)) {
+        const bar = document.querySelector('.bar');
+        bar.appendChild(piecesOnTarget[0]);
+      }
+
+      point.appendChild(draggedPiece);
+      resizePieces(point);
+      const usedRoll = diceRolls.find(r => getEntryPointForRoll(r) === point.id);
+      diceRolls.splice(diceRolls.indexOf(usedRoll), 1);
+      draggedPiece = null;
+
+      if (diceRolls.length === 0) {
+        currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+        updateTurnInfo();
+      }
+
+      return; 
+    }
+
+    const fromNum = getPointNumber(fromPointId);
+    const toNum = getPointNumber(point.id);
+    const distance = currentPlayer === 'white'
+      ? fromNum - toNum
+      : toNum - fromNum;
+
+    if (diceRolls.includes(distance) && distance > 0) {
+      const piecesOnTarget = point.querySelectorAll('.piece');
+      const opponent = currentPlayer === 'white' ? 'black' : 'white';
+
+      if (piecesOnTarget.length === 1 && piecesOnTarget[0].classList.contains(opponent)) {
+        const bar = document.querySelector('.bar');
+        bar.appendChild(piecesOnTarget[0]);
+      } else if (piecesOnTarget.length >= 1 && piecesOnTarget[0].classList.contains(opponent)) {
+        return;
+      }
+
+      point.appendChild(draggedPiece);
+      resizePieces(point);
+      diceRolls.splice(diceRolls.indexOf(distance), 1);
+      draggedPiece = null;
+
+      if (diceRolls.length === 0) {
+        currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+        updateTurnInfo();
+      }
+        }
+      });
+    });
+
+    updateTurnInfo();
+  </script>
+</body>
+</html>
